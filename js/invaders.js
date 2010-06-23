@@ -64,6 +64,8 @@
   
   $.game = {
     paused: false,
+    score: 0,
+    lives: 3,
     
     keyup: function(e) {
       switch (e.keyCode) {
@@ -119,29 +121,53 @@
     },
 
     tick: function() {
-      if (this.paused) return;
+      if (this.paused || this.lives == 0) return;
       
       invaders.update();
       ship.update();
+      this.displayScore();
       this.detectCollisions();
-      // setTimeout(function() { arguments.callee(); }, 100);
-      
+      this.displayLives();
+      // setTimeout(function() { arguments.callee(); }, 100);      
       setTimeout(function() { $.game.tick(); }, 30);
     },
     
+    displayScore: function() {
+      ctx.fillStyle = '#f00';
+      ctx.font      = 'bold 20px monospace';
+      ctx.baseline  = 'top';
+      ctx.fillText(this.score, 10, 25);
+    },
+
+    displayLives: function() {
+      for(var i = 0; i < this.lives; i++ ) {
+        ship.draw(500 + 30 * i, 10);
+      };
+    },
+    
+    gameOver: function() {
+      alert('game over');
+      $.game.paused = true;      
+    },
+    
+    // collisions simplify by treating bullets as a point
     detectPlayerBulletCollisions: function() {
       if (ship.bullet) { 
-        var bx = ship.bullet.x, by = ship.bullet.y; // simplify by treating bullet as a point
+        var bx = ship.bullet.x, by = ship.bullet.y;
         invaders.eachAlien(function() {
           if (this.dead) return;
           if (bx >= this.x1() && bx <= this.x2() && by >= this.y1() && by <= this.y2()) {
-            this.dead = true;
+            this.dead   = true;
             ship.bullet = null;
+            $.game.score += 10;
+            invaders.remaining -= 1;
+            if (invaders.remaining == 0) {
+              invaders.init();
+            };
+            return;
           }
-          // simplistic
         });
       }
-      //
     },
     
     detectEnemyBulletCollisions: function () {
@@ -159,7 +185,7 @@
 
     detectEnemyShipCollisions: function () {
       var px = ship.x + ship.width / 2, 
-          py = ship.y;
+          py = ship.y + ship.height / 2;
       invaders.eachAlien(function() {
         if (this.dead) return;
         if (px >= this.x1() && px <= this.x2() && py >= this.y1() && py <= this.y2()) {
@@ -228,27 +254,35 @@
     },
     
     explode: function() {
-      alert('you die');
-      $.game.paused = true;      
+      $.game.lives -= 1;
+      if ($.game.lives > 0) {
+        invaders.reset();
+        ship.init();
+      } else {
+        $.game.gameOver();
+      }
     }
   });
 
   littleAlien = new Sprite({
-    src: './images/alien.png',
-    width: 20,
+    src:    './images/alien.png',
+    width:  20,
     height: 20
   });
     
   invaders = {
-    nRows:     2,
-    nCols:     12,
+    nRows:     4,
+    nCols:     6,
     aliens:    [],
     bullets:   [],
     x:         0,
     y:         0,
+    initX:     0,
+    initY:     40,    
     xIncr:     5,
     padding:   5,
     width:     null,
+    remaining: 0,
     direction: RIGHT,
 
     atEdge: function() { return atEdge.call(this); },
@@ -304,6 +338,7 @@
     },
     
     init: function() {
+      this.aliens = [];
       for (i = 0; i < this.nRows; i++) {
         var row = [];
         for (j = 0; j < this.nCols; j++) {
@@ -320,6 +355,15 @@
         this.aliens.push(row);
       };
       this.width = (littleAlien.width + this.padding) * this.nCols;
+      this.y = this.initY;
+      this.x = this.initX;
+      this.remaining = this.nRows * this.nCols;
+    },
+    
+    reset: function() {
+      this.bullets = [];
+      this.y = this.initY;
+      this.x = 0;
     },
         
     fire: function() {
