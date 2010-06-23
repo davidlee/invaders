@@ -11,7 +11,7 @@
         ESC:   27
       },
       canvas, ctx, 
-      invaders, ship, alien;
+      invaders, ship, alien, explosions;
   
   function atEdge() {
     if (this.direction == RIGHT) {
@@ -19,11 +19,12 @@
     };
     return this.x <= 0;
   };
-  
+    
   Array.prototype.random = function() { 
     var idx = Math.round(Math.random() * (this.length - 1));
     return this[idx];
   };
+
   
   var Sprite = function(options) {
     return $.extend({
@@ -108,7 +109,7 @@
     },
 
     mousemove: function(e) {
-      $.game.mouseX = Math.min(e.clientX, canvas.width);
+      $.game.mouseX = Math.min(e.clientX, canvas.width - ship.width);
     },
     
     start: function() {
@@ -126,7 +127,7 @@
       littleAlien.init();
       ship.init();
       
-      this.groundY = ship.y + ship.height
+      this.groundY = ship.y + ship.height;
 
       $(document).keydown(this.keydown);
       $(document).keyup(this.keyup);
@@ -137,6 +138,7 @@
       this.tick();
     },
 
+    // periodically executed function to render scene
     tick: function() {
       if (this.paused || this.lives == 0) return;
       
@@ -148,15 +150,11 @@
       this.renderScore();
       this.renderLives();
       
+      // move the ship with the mouse
       if (this.mouseX) {
-        // ctx.fillStyle = '#f00';
-        // console.log(this.mouseX)
-        // ctx.fillRect(this.mouseX + ship.width / 2, this.groundY, 1, 20 );
-        
         if (Math.abs(ship.xMid() - this.mouseX) < ship.speed) {
           ship.x = this.mouseX;
         }
-        
         if (ship.xMid() > this.mouseX) {
           ship.direction = LEFT;
         } else if (ship.xMid() < this.mouseX) {
@@ -165,16 +163,16 @@
           ship.direction = null;
         }
       }
-      
-      // setTimeout(function() { arguments.callee(); }, 100);
+      // rinse, repeat
       setTimeout(function() { $.game.tick(); }, 30);
     },
     
     renderScore: function() {
-      ctx.fillStyle = '#f00';
-      ctx.font      = 'bold 20px monospace';
-      ctx.baseline  = 'top';
-      ctx.fillText(this.score, 10, 25);
+      ctx.fillStyle     = '#f00';
+      ctx.font          = 'bold 20px monospace';
+      ctx.textBaseline  = 'top';      
+      ctx.textAlign     = 'right';
+      ctx.fillText(this.score, 10, 5);
     },
 
     renderLives: function() {
@@ -184,10 +182,6 @@
     },
 
     renderGround: function() {
-      var x1 = 0, 
-          x2 = canvas.width,
-          y1 = ship.y + ship.height,
-          y2 = canvas.height;
       ctx.fillStyle = '#eff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#9c5';
@@ -195,8 +189,13 @@
     },
         
     gameOver: function() {
-      alert('game over');
-      $.game.paused = true;      
+      ctx.fillStyle    = '#f00';
+      ctx.font         = 'bold 100px monospace';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign    = 'center';
+      ctx.fillText("GAME", canvas.width / 2, canvas.height / 2 - 50);      
+      ctx.fillText("OVER", canvas.width / 2, canvas.height / 2 + 50);
+      $.game.paused = true;
     },
     
     // collisions simplify by treating bullets as a point
@@ -239,7 +238,7 @@
         if (this.dead) return;
         if (px >= this.x1() && px <= this.x2() && py >= this.y1() && py <= this.y2()) {
           ship.explode();
-        } else if (this.y2() > canvas.height) {
+        } else if (this.y2() > $.game.groundY) {
           ship.explode();
         };
       });
@@ -254,7 +253,6 @@
   
   // SHIP //-----------------------------------------------------------------//
 
-  
   ship = new Sprite({
     src:       './images/ship.png',
     width:     20,
