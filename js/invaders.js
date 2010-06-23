@@ -62,10 +62,14 @@
     }, options);
   };
   
+  // GAME //--------------------------------------------------------------//
+  
   $.game = {
     paused: false,
     score: 0,
     lives: 3,
+    groundY: null,
+    mouseX:  null,
     
     keyup: function(e) {
       switch (e.keyCode) {
@@ -79,16 +83,15 @@
     },
     
     keydown: function(e) {
+      $.game.mouseX = null;
       switch (e.keyCode) {
         case keyCodes.LEFT:
           ship.direction = LEFT;
           ship.move();
-          // ship.x -= 10;
           break;
         case keyCodes.RIGHT:
           ship.direction = RIGHT;
           ship.move();
-          // ship.x += 10;
           break;
         case keyCodes.SPACE:
           ship.fire();
@@ -100,6 +103,14 @@
       };
     },
     
+    mousedown: function(e) {
+      ship.fire();
+    },
+
+    mousemove: function(e) {
+      $.game.mouseX = Math.min(e.clientX, canvas.width);
+    },
+    
     start: function() {
       // check we have canvas
       canvas = document.getElementById('view');      
@@ -108,13 +119,19 @@
       }
       ctx = canvas.getContext('2d');
       
+      this.mouseX = ship.x;
+      
       // load sprites
       invaders.init();
       littleAlien.init();
       ship.init();
+      
+      this.groundY = ship.y + ship.height
 
       $(document).keydown(this.keydown);
       $(document).keyup(this.keyup);
+      $(document).mousedown(this.mousedown);
+      $(document).mousemove(this.mousemove);
       
       // kick off event loop
       this.tick();
@@ -123,28 +140,60 @@
     tick: function() {
       if (this.paused || this.lives == 0) return;
       
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      this.renderGround();
       invaders.update();
       ship.update();
-      this.displayScore();
       this.detectCollisions();
-      this.displayLives();
-      // setTimeout(function() { arguments.callee(); }, 100);      
+      this.renderScore();
+      this.renderLives();
+      
+      if (this.mouseX) {
+        // ctx.fillStyle = '#f00';
+        // console.log(this.mouseX)
+        // ctx.fillRect(this.mouseX + ship.width / 2, this.groundY, 1, 20 );
+        
+        if (Math.abs(ship.xMid() - this.mouseX) < ship.speed) {
+          ship.x = this.mouseX;
+        }
+        
+        if (ship.xMid() > this.mouseX) {
+          ship.direction = LEFT;
+        } else if (ship.xMid() < this.mouseX) {
+          ship.direction = RIGHT;
+        } else {
+          ship.direction = null;
+        }
+      }
+      
+      // setTimeout(function() { arguments.callee(); }, 100);
       setTimeout(function() { $.game.tick(); }, 30);
     },
     
-    displayScore: function() {
+    renderScore: function() {
       ctx.fillStyle = '#f00';
       ctx.font      = 'bold 20px monospace';
       ctx.baseline  = 'top';
       ctx.fillText(this.score, 10, 25);
     },
 
-    displayLives: function() {
+    renderLives: function() {
       for(var i = 0; i < this.lives; i++ ) {
         ship.draw(500 + 30 * i, 10);
       };
     },
-    
+
+    renderGround: function() {
+      var x1 = 0, 
+          x2 = canvas.width,
+          y1 = ship.y + ship.height,
+          y2 = canvas.height;
+      ctx.fillStyle = '#eff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#9c5';
+      ctx.fillRect(0, this.groundY, canvas.width, canvas.height);
+    },
+        
     gameOver: function() {
       alert('game over');
       $.game.paused = true;      
@@ -184,11 +233,13 @@
     },
 
     detectEnemyShipCollisions: function () {
-      var px = ship.x + ship.width / 2, 
-          py = ship.y + ship.height / 2;
+      var px = ship.xMid(), 
+          py = ship.yMid();
       invaders.eachAlien(function() {
         if (this.dead) return;
         if (px >= this.x1() && px <= this.x2() && py >= this.y1() && py <= this.y2()) {
+          ship.explode();
+        } else if (this.y2() > canvas.height) {
           ship.explode();
         };
       });
@@ -201,6 +252,9 @@
     }
   };
   
+  // SHIP //-----------------------------------------------------------------//
+
+  
   ship = new Sprite({
     src:       './images/ship.png',
     width:     20,
@@ -210,11 +264,15 @@
     direction: null,
     speed:     10,
     bullet:    null,
+
+    xMid:      function() { return this.x + this.width / 2;  },
+    yMid:      function() { return this.y + this.height / 2; },    
     
     init: function() {
       this.load();
       this.x = canvas.width / 2 - (ship.width / 2);
       this.y = canvas.height - this.height - 20;
+      this.mousePos = canvas.width / 2;
     },
     
     update: function() {      
@@ -263,13 +321,15 @@
       }
     }
   });
+  
+  // INVADERS //--------------------------------------------------------------//
 
   littleAlien = new Sprite({
     src:    './images/alien.png',
     width:  20,
     height: 20
   });
-    
+  
   invaders = {
     nRows:     4,
     nCols:     6,
@@ -304,7 +364,6 @@
     },
     
     draw: function() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
       ctx.translate(this.x, this.y);
       this.eachAlien(function() {
