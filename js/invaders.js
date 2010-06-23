@@ -11,7 +11,8 @@
         ESC:   27
       },
       canvas, ctx, 
-      invaders, ship, alien, explosions;
+      invaders, ship, alien, 
+      explosions = [];
   
   function atEdge() {
     if (this.direction == RIGHT) {
@@ -25,6 +26,39 @@
     return this[idx];
   };
 
+  var Explosion = function(options) {
+    var explosion = $.extend({
+      x: null,
+      y: null,
+      age: 0,
+      alpha: 0,
+      k: 0.3,
+      size: 20,
+      
+      update: function() {
+        this.age += this.k;
+        this.alpha = Math.sin(this.age);
+        if (this.alpha < 0) {
+          explosions.shift();
+        } else {          
+          this.draw();
+        };
+      },
+      
+      draw: function() {        
+        ctx.save();
+        ctx.beginPath();        
+        ctx.globalAlpha = this.alpha;
+        ctx.fillStyle   = '#f70';        
+        ctx.arc(this.x, this.y, this.alpha * this.size, 0, 180);
+        ctx.closePath();
+        // ctx.stroke();
+        ctx.fill();
+        ctx.restore();
+      }
+    }, options);
+    return explosion;
+  };
   
   var Sprite = function(options) {
     return $.extend({
@@ -64,7 +98,6 @@
   };
   
   // GAME //--------------------------------------------------------------//
-  
   $.game = {
     paused: false,
     score: 0,
@@ -150,6 +183,10 @@
       this.renderScore();
       this.renderLives();
       
+      $.each(explosions, function() {
+        this.update();
+      });
+      
       // move the ship with the mouse
       if (this.mouseX) {
         if (Math.abs(ship.xMid() - this.mouseX) < ship.speed) {
@@ -163,6 +200,7 @@
           ship.direction = null;
         }
       }
+      
       // rinse, repeat
       setTimeout(function() { $.game.tick(); }, 30);
     },
@@ -208,6 +246,7 @@
             this.dead   = true;
             ship.bullet = null;
             $.game.score += 10;
+            explosions.push(new Explosion({x: bx, y: by}));
             invaders.remaining -= 1;
             if (invaders.remaining == 0) {
               invaders.init();
@@ -269,7 +308,7 @@
     init: function() {
       this.load();
       this.x = canvas.width / 2 - (ship.width / 2);
-      this.y = canvas.height - this.height - 20;
+      this.y = canvas.height - this.height - 14;
       this.mousePos = canvas.width / 2;
     },
     
@@ -294,9 +333,9 @@
       this.bullet = new Sprite({ 
         x:   this.x,
         y:   this.y,
-        width: 2,
+        width:  2,
         height: 10,
-        speed: 10,
+        speed:  10,
         src: './images/bullet.png',
         update: function() {
           this.y -= this.speed;
@@ -314,6 +353,7 @@
       if ($.game.lives > 0) {
         invaders.reset();
         ship.init();
+        explosions.push(new Explosion({x: ship.xMid(), y: ship.yMid() }));
       } else {
         $.game.gameOver();
       }
@@ -385,7 +425,7 @@
       this.fire();
       for(var i = 0; i < this.bullets.length; i++ ) {
         var bullet = this.bullets[i];
-        if (bullet.y > canvas.height) {
+        if (bullet.y + bullet.height > $.game.groundY) {
           this.bullets.shift();
         } else {
           bullet.y += bullet.speed;
@@ -446,5 +486,7 @@
   $(document).ready(function() {
     $.game.start();
   });
+
+  $.ship = ship;
 
 })(jQuery);
