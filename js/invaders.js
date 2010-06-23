@@ -1,5 +1,5 @@
 (function($) {
-
+  
   var LEFT     = -1, 
       RIGHT    = 1, 
       keyCodes = {
@@ -12,15 +12,82 @@
       },
       canvas, ctx, 
       invaders, ship, alien, 
+      bitmaps, images = {},
       explosions = [];
   
+  bitmaps = {
+    bullet: [
+      "##",
+      "##",
+      "##",
+      "##",
+      "##",
+      "##",
+      "##",
+      "##",
+      "##",
+      "##"
+    ],
+    
+    a1: [
+      "   ###   ",
+      "  #####  ",
+      " ####### ",
+      "#########",
+      "# ##### #",
+      "#########",
+      "   # #   ",
+      "  # # #  ",
+      " # # # # ",
+      "#       #"
+    ],
+    a2: [
+      "   ###   ",
+      "  #####  ",
+      " ####### ",
+      "#########",
+      "# ##### #",
+      "#########",
+      "   # #   ",
+      "# # # # #",
+      " #     # ",
+      "         "
+    ]    
+  };
+  
+  // turns the bitmaps above into a blown-up ImageData object, w/ nice big pixels
+  // unfortunately ImageData ignores transformations, or this could be a lot 
+  // simpler.
+  function makeImage(bitmap, r, g, b) {
+    var xScale = 3, 
+        yScale = 3,
+        image = ctx.createImageData(bitmap[0].length * xScale, bitmap.length * yScale),
+        px, py;    
+    for (var x = 0; x < image.width; x ++) {
+      for (var y = 0; y < image.height; y ++) {                
+        // Index of the pixel in the array
+        px = Math.floor(x / xScale);
+        py = Math.floor(y / yScale);
+        
+        if (bitmap[py][px] == '#') {  // it's a visible "pixel"
+          var idx = (x + y * image.width) * 4;
+          image.data[idx + 0] = r || 0;
+          image.data[idx + 1] = g || 0;
+          image.data[idx + 2] = b || 0;
+          image.data[idx + 3] = 255;
+        };
+      };
+    };    
+    return image;
+  }
+
   function atEdge() {
     if (this.direction == RIGHT) {
       return this.x >= (canvas.width - this.width);
     };
     return this.x <= 0;
   };
-    
+
   Array.prototype.random = function() { 
     var idx = Math.round(Math.random() * (this.length - 1));
     return this[idx];
@@ -28,16 +95,21 @@
 
   var Explosion = function(options) {
     var explosion = $.extend({
-      x: null,
-      y: null,
-      age: 0,
-      alpha: 0,
-      k: 0.3,
-      size: 20,
+      x:         null,
+      y:         null,
+      age:       0,
+      alpha:     0,
+      k:         0.3,
+      size:      20,
+      score:     '',
+      color:     '#f70',
+      textColor: '#f00',
       
       update: function() {
+        // the alpha (and explosion size) follow a sine curve of growth
+        // and subsequent contraction
         this.age += this.k;
-        this.alpha = Math.sin(this.age);
+        this.alpha = Math.sin(this.age); 
         if (this.alpha < 0) {
           explosions.shift();
         } else {          
@@ -49,11 +121,15 @@
         ctx.save();
         ctx.beginPath();        
         ctx.globalAlpha = this.alpha;
-        ctx.fillStyle   = '#f70';        
+        ctx.fillStyle   = this.color;        
         ctx.arc(this.x, this.y, this.alpha * this.size, 0, 180);
         ctx.closePath();
-        // ctx.stroke();
         ctx.fill();
+        ctx.fillStyle    = this.textColor;
+        ctx.font         = 'bold ' + this.age * 10 + 'px monospace';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign    = 'center';
+        ctx.fillText(this.score, this.x, this.y - this.age * 10);        
         ctx.restore();
       }
     }, options);
@@ -62,7 +138,6 @@
   
   var Sprite = function(options) {
     return $.extend({
-      // defaults
       image:   new Image(),
       src:     null,
       loaded:  false,
@@ -88,16 +163,18 @@
   
   var Enemy = function(options) {
     return $.extend({
-      dead: false,
-      fleet: invaders,
+      dead:   false,
+      fleet:  invaders,
+      points: 10, 
       x1: function() { return this.x + this.fleet.x; },
-      x2: function() { return this.x1() + littleAlien.width; },
+      x2: function() { return this.x1() + this.fleet.cellWidth; },
       y1: function() { return this.y + this.fleet.y; },
-      y2: function() { return this.y1() + littleAlien.height; }
+      y2: function() { return this.y1() + this.fleet.cellHeight; }
     }, options);
   };
   
   // GAME //--------------------------------------------------------------//
+  
   $.game = {
     paused: false,
     score: 0,
@@ -156,8 +233,11 @@
       this.mouseX = ship.x;
       
       // load sprites
+      $.each(bitmaps, function(name) {
+        images[name] = makeImage(bitmaps[name]);
+      });
+      
       invaders.init();
-      littleAlien.init();
       ship.init();
       
       this.groundY = ship.y + ship.height;
@@ -166,7 +246,7 @@
       $(document).keyup(this.keyup);
       $(document).mousedown(this.mousedown);
       $(document).mousemove(this.mousemove);
-      
+            
       // kick off event loop
       this.tick();
     },
@@ -182,11 +262,8 @@
       this.detectCollisions();
       this.renderScore();
       this.renderLives();
-      
-      $.each(explosions, function() {
-        this.update();
-      });
-      
+      this.renderExplosions();
+                  
       // move the ship with the mouse
       if (this.mouseX) {
         if (Math.abs(ship.xMid() - this.mouseX) < ship.speed) {
@@ -210,13 +287,19 @@
       ctx.font          = 'bold 20px monospace';
       ctx.textBaseline  = 'top';      
       ctx.textAlign     = 'right';
-      ctx.fillText(this.score, 10, 5);
+      ctx.fillText(this.score, 50, 5);
     },
 
     renderLives: function() {
       for(var i = 0; i < this.lives; i++ ) {
         ship.draw(500 + 30 * i, 10);
       };
+    },
+    
+    renderExplosions: function() {
+      for (var i = 0; i < explosions.length; i++) {
+        explosions[i].update();
+      };      
     },
 
     renderGround: function() {
@@ -245,11 +328,11 @@
           if (bx >= this.x1() && bx <= this.x2() && by >= this.y1() && by <= this.y2()) {
             this.dead   = true;
             ship.bullet = null;
-            $.game.score += 10;
-            explosions.push(new Explosion({x: bx, y: by}));
+            $.game.score += this.points;
+            explosions.push(new Explosion({x: bx, y: by, score: '10'}));
             invaders.remaining -= 1;
             if (invaders.remaining == 0) {
-              invaders.init();
+              invaders.nextWave();
             };
             return;
           }
@@ -335,7 +418,7 @@
         y:   this.y,
         width:  2,
         height: 10,
-        speed:  10,
+        speed:  15,
         src: './images/bullet.png',
         update: function() {
           this.y -= this.speed;
@@ -361,27 +444,24 @@
   });
   
   // INVADERS //--------------------------------------------------------------//
-
-  littleAlien = new Sprite({
-    src:    './images/alien.png',
-    width:  20,
-    height: 20
-  });
   
   invaders = {
-    nRows:     4,
-    nCols:     6,
-    aliens:    [],
-    bullets:   [],
-    x:         0,
-    y:         0,
-    initX:     0,
-    initY:     40,    
-    xIncr:     5,
-    padding:   5,
-    width:     null,
-    remaining: 0,
-    direction: RIGHT,
+    nRows:      5,
+    nCols:      11,
+    aliens:     [],
+    bullets:    [],
+    x:          0,
+    y:          0,
+    initX:      0,
+    initY:      40,    
+    speed:      10,
+    padding:    5,
+    width:      null,
+    remaining:  0,
+    direction:  RIGHT,
+    counter:    0,
+    modulus:    10, // only move every n ticks
+    frame:      1,
 
     atEdge: function() { return atEdge.call(this); },
     
@@ -402,20 +482,28 @@
     },
     
     draw: function() {
-      ctx.save();
-      ctx.translate(this.x, this.y);
+      // ctx.save();
+      // ctx.translate(this.x, this.y);
+      // ctx.scale(200, 200);
       this.eachAlien(function() {
-        if (!this.dead) { littleAlien.draw(this.x, this.y); };
+        if (!this.dead) {
+          ctx.putImageData(images['a' + this.fleet.frame], this.x + this.fleet.x, this.y + this.fleet.y);
+          // this.sprite.draw(this.x, this.y);
+        };
       });
-      ctx.restore();
+      // ctx.restore();
     },
     
     move: function() {
+      if (this.counter++ % this.modulus != 0) {
+        return;
+      }
+      this.frame = (this.frame) % 2 + 1; // alternate between 2 frames
       if (this.atEdge()) {
-        this.y += littleAlien.height + this.padding;
+        this.y += this.cellHeight + this.padding;
         this.direction *= -1;
       } else {
-        this.x += this.direction * this.xIncr;
+        this.x += this.direction * this.speed;
       }
     },
     
@@ -436,25 +524,27 @@
     
     init: function() {
       this.aliens = [];
+      this.cellWidth  = images['a1'].width;
+      this.cellHeight = images['a1'].height;
+      
       for (i = 0; i < this.nRows; i++) {
         var row = [];
         for (j = 0; j < this.nCols; j++) {
           var enemy = new Enemy({
             row: i,
             col: j,
-            x: ((littleAlien.width  + this.padding) * j),
-            y: ((littleAlien.height + this.padding) * i),
+            x: ((this.cellWidth  + this.padding) * j),
+            y: ((this.cellHeight + this.padding) * i),
             fleet:  this,
-            sprite: littleAlien
           });
           row.push(enemy);
         };
         this.aliens.push(row);
       };
-      this.width = (littleAlien.width + this.padding) * this.nCols;
+      this.width = (this.cellWidth + this.padding) * this.nCols;
       this.y = this.initY;
       this.x = this.initX;
-      this.remaining = this.nRows * this.nCols;
+      this.remaining  = this.nRows * this.nCols;
     },
     
     reset: function() {
@@ -462,14 +552,19 @@
       this.y = this.initY;
       this.x = 0;
     },
+    
+    nextWave: function() {
+      this.speed = Math.min(this.speed + 1, 15);
+      this.init();
+    },
         
     fire: function() {
-      if (Math.random() > 0.99) {
+      if (Math.random() > 0.95) {
         var shooter = this.aliens.random().random();
         if (shooter.dead) { return; }
         
         var bullet = new Sprite({ 
-          x:      shooter.x1() + (shooter.sprite.width / 2),
+          x:      shooter.x1() + (this.cellWidth / 2),
           y:      shooter.y1(),
           width:  2,
           height: 10,
