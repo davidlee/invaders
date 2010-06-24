@@ -8,16 +8,23 @@
   
   canvas {  border: 1px solid silver; }
   </style> 
-  <script type="text/javascript" src="./js/jquery.min.js"></script>   <script src="./js/invaders.js" ></script>
+  <script type="text/javascript" src="./js/jquery.min.js"></script>   
+  <script type="text/javascript" src="./js/invaders.js" ></script>
  </head>
+ 
  <body>
+  <div id="wrap">
+
+    <h1>Space Invaders</h1> 
+    <p> Left, Right to move</p>
+    <p>Space to fire</p>
+    <p>Or, use your mouse</p>
+    <p>Esc pauses</p>
+
+    <canvas id="view" width="600" height="400"></canvas>
+    <audio id="shoot" preload="true" src="./sfx/shoot.wav"></audio>
+    <audio id="kill"  preload="true" src="./sfx/invaderkilled.wav"></audio>
     
-  <h1>Space Invaders</h1> 
-  <p> Left, Right to move</p>
-  <p>Space to fire</p>
-  <p>Or, use your mouse</p>
-  <p>Esc pauses</p>
-  
-  <canvas id="view" width="600" height="400"></canvas>
+  </div>
  </body> 
 </html> 
