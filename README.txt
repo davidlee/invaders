@@ -1,10 +1,11 @@
 A clone of the video game classic Space Invaders, using HTML5 (canvas) and javascript.
 
 TODO:
- * explosions
  * shields
- * animate aliens; better images
- * variegated aliens
+ * image sets for 4 other aliens, mothership, alien bullets
  * mothership
- * waves advance closer to the ground
- * waves speed up as alien numbers thin
+ * successive waves advance closer to the ground
+ * waves pour in from the top each round
+ * sounds
+ * add some basic css to demo page
+ * high score table
