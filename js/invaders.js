@@ -1,3 +1,5 @@
+var SpaceInvaders;
+
 (function($) {
   
   var LEFT     = -1, 
@@ -16,66 +18,112 @@
       explosions = [];
   
   bitmaps = {
-    bullet: [
-      "##",
-      "##",
-      "##",
-      "##",
-      "##",
-      "##",
-      "##",
-      "##",
-      "##",
-      "##"
-    ],
+    bullet: {
+      color: [255,255,0],
+      frames: [
+        [
+          " ## ",
+          " ## ",
+          " ## ",
+          " ## ",
+          " ## ",
+          " ## ",
+          " ## ",
+          " ## ",
+          " ## ",
+          " ## "
+        ]
+      ]
+    },
+
+    b: {
+      color: [0,255,0],
+      frames: [
+        [
+          "       ###       ",
+          "      #####      ",
+          "     #######     ",
+          "    ## ### ##    ",
+          "   ###########   ",
+          "    #########    ",
+          "   ##  ###  ##   ",
+          " ##           ## ",
+          "   ##       ##   ",
+          "                 "
+        ],
+        [
+          "       ###       ",
+          "      #####      ",
+          "     #######     ",
+          "    ## ### ##    ",
+          "   ###########   ",
+          "    #########    ",
+          "   ##  ###  ##   ",
+          "     ##   ##     ",
+          "   ##       ##   ",
+          "                 "
+        ]
+      ]
+    },
     
-    a1: [
-      "   ###   ",
-      "  #####  ",
-      " ####### ",
-      "#########",
-      "# ##### #",
-      "#########",
-      "   # #   ",
-      "  # # #  ",
-      " # # # # ",
-      "#       #"
-    ],
-    
-    a2: [
-      "   ###   ",
-      "  #####  ",
-      " ####### ",
-      "#########",
-      "# ##### #",
-      "#########",
-      "   # #   ",
-      "# # # # #",
-      " #     # ",
-      "         "
-    ],
-    
-    ship: [
-      "         ",
-      "         ",
-      "    #    ",
-      "  #####  ",
-      " ####### ",
-      "#########",
-      "#########",
-      "#########",
-      "#########",
-      "#########"
-    ],
-    
+    a: {
+      color: [255,0,0],
+      frames: [
+        [
+          "      #####      ",
+          "  #############  ",
+          " ############### ",
+          "#################",
+          "##   #######   ##",
+          "#################",
+          "    ###   ###    ",
+          "   ### ### ###   ",
+          " ###         ### ",
+          "                 "
+        ],
+        [
+          "      #####      ",
+          "  #############  ",
+          " ############### ",
+          "#################",
+          "##   #######   ##",
+          "#################",
+          "    ###   ###    ",
+          "   ### ### ###   ",
+          "    ###   ###    ",
+          "                 "
+        ]
+      ]
+    },
+
+    ship: {
+      color: [0,255,0],
+      frames: [
+        [
+           "     #     ",
+           "    ###    ",
+           "    ###    ",
+           " ######### ",  
+           "###########",
+           "###########",
+           "###########",
+           "###########",
+           "###########",
+           "###########"
+         ]      
+      ]
+    }
   };
   
   // turns the bitmaps above into a blown-up ImageData object, w/ nice big pixels
   // unfortunately ImageData ignores transformations, or this could be a lot 
   // simpler.
-  function makeImage(bitmap, r, g, b) {
-    var xScale = 3, 
-        yScale = 3,
+  function makeImage(bitmap, color) {
+    r = color[0] || 0;
+    g = color[1] || 0;
+    b = color[2] || 0;
+    var xScale = 2, 
+        yScale = 2,
         image = ctx.createImageData(bitmap[0].length * xScale, bitmap.length * yScale),
         px, py;    
     for (var x = 0; x < image.width; x ++) {
@@ -84,12 +132,18 @@
         px = Math.floor(x / xScale);
         py = Math.floor(y / yScale);
         
-        if (bitmap[py][px] == '#') {  // it's a visible "pixel"
-          var idx = (x + y * image.width) * 4;
-          image.data[idx + 0] = r || 0;
-          image.data[idx + 1] = g || 0;
-          image.data[idx + 2] = b || 0;
-          image.data[idx + 3] = 255;
+        var idx = (x + y * image.width) * 4;
+
+        if (bitmap[py][px] == '#' && (y % 2 == 0)) {  // it's a visible "pixel"
+          image.data[idx + 0] = r;
+          image.data[idx + 1] = g;
+          image.data[idx + 2] = b;
+          image.data[idx + 3] = 255; // alpha transparency
+        } else {
+          image.data[idx + 0] = 0;
+          image.data[idx + 1] = 0;
+          image.data[idx + 2] = 0;          
+          image.data[idx + 3] = 255; // alpha transparency
         };
       };
     };    
@@ -118,7 +172,7 @@
       size:      20,
       score:     '',
       color:     '#f70',
-      textColor: '#f00',
+      textColor: '#fff',
       
       update: function() {
         // the alpha (and explosion size) follow a sine curve of growth
@@ -137,7 +191,7 @@
         ctx.beginPath();        
         ctx.globalAlpha = this.alpha;
         ctx.fillStyle   = this.color;        
-        ctx.arc(this.x, this.y, this.alpha * this.size, 0, 180);
+        ctx.arc(this.x, this.y, this.alpha * this.size, 0, 180, false);
         ctx.closePath();
         ctx.fill();
         ctx.fillStyle    = this.textColor;
@@ -152,28 +206,16 @@
   };
   
   var Sprite = function(options) {
-    return $.extend({
-      image:   new Image(),
-      src:     null,
-      loaded:  false,
-      width:   0,
-      height:  0,
-
-      init: function() { this.load(); },
-      
-      load: function() {
-        var self = this;      
-        this.image.onload = function() { self.loaded = true; };
-        this.image.src    = this.src;
-      },
+    var sprite = $.extend({
+      image:   null,
       
       draw: function (x, y) {
-        if (this.loaded) {
-          ctx.drawImage(this.image, x, y, this.width, this.height);
-        }
-      }
-      
+        ctx.putImageData(this.image, x, y);
+      }      
     }, options);
+    sprite.width  = sprite.image.width;
+    sprite.height = sprite.image.height;
+    return sprite;
   };
   
   var Enemy = function(options) {
@@ -190,7 +232,7 @@
   
   // GAME //--------------------------------------------------------------//
   
-  $.game = {
+  SpaceInvaders = {
     paused: false,
     score: 0,
     lives: 3,
@@ -209,7 +251,7 @@
     },
     
     keydown: function(e) {
-      $.game.mouseX = null;
+      SpaceInvaders.mouseX = null;
       switch (e.keyCode) {
         case keyCodes.LEFT:
           ship.direction = LEFT;
@@ -223,8 +265,8 @@
           ship.fire();
           break;
         case keyCodes.ESC:
-          $.game.paused = !$.game.paused;
-          $.game.tick();
+          SpaceInvaders.paused = !SpaceInvaders.paused;
+          SpaceInvaders.tick();
           break;
       };
     },
@@ -234,7 +276,7 @@
     },
 
     mousemove: function(e) {
-      $.game.mouseX = Math.min(e.clientX, canvas.width - ship.width);
+      SpaceInvaders.mouseX = Math.min(e.clientX, canvas.width - ship.width);
     },
     
     start: function() {
@@ -244,13 +286,18 @@
         return; // and tell them to get a real browser, or use fake canvas for IE
       }
       ctx = canvas.getContext('2d');
-      
-      this.mouseX = ship.x;
-      
+            
       // load sprites
       $.each(bitmaps, function(name) {
-        images[name] = makeImage(bitmaps[name]);
+        var color = bitmaps[name]['color'];
+        images[name] = [];
+        for (var i=0; i < bitmaps[name]['frames'].length; i++ ) {
+          images[name][i] = makeImage(bitmaps[name]['frames'][i], color);
+        };
       });
+      
+      ship = new Player();
+      this.mouseX = ship.x;
       
       invaders.init();
       ship.init();
@@ -294,7 +341,7 @@
       }
       
       // rinse, repeat
-      setTimeout(function() { $.game.tick(); }, 30);
+      setTimeout(function() { SpaceInvaders.tick(); }, 30);
     },
     
     renderScore: function() {
@@ -318,10 +365,10 @@
     },
 
     renderGround: function() {
-      ctx.fillStyle = '#eff';
+      ctx.fillStyle = '#000'; // sky
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#9c5';
-      ctx.fillRect(0, this.groundY, canvas.width, canvas.height);
+      ctx.fillStyle = '#0f0'; // ground
+      ctx.fillRect(10, this.groundY, canvas.width - 20, 2);
     },
         
     gameOver: function() {
@@ -331,19 +378,19 @@
       ctx.textAlign    = 'center';
       ctx.fillText("GAME", canvas.width / 2, canvas.height / 2 - 50);      
       ctx.fillText("OVER", canvas.width / 2, canvas.height / 2 + 50);
-      $.game.paused = true;
+      SpaceInvaders.paused = true;
     },
     
     // collisions simplify by treating bullets as a point
     detectPlayerBulletCollisions: function() {
       if (ship.bullet) { 
-        var bx = ship.bullet.x, by = ship.bullet.y;
+        var bx = (ship.bullet.x + ship.bullet.width / 2), by = ship.bullet.y;
         invaders.eachAlien(function() {
           if (this.dead) return;
           if (bx >= this.x1() && bx <= this.x2() && by >= this.y1() && by <= this.y2()) {
             this.dead   = true;
             ship.bullet = null;
-            $.game.score += this.points;
+            SpaceInvaders.score += this.points;
             explosions.push(new Explosion({x: bx, y: by, score: '10'}));
             invaders.remaining -= 1;
             if (invaders.remaining == 0) {
@@ -375,7 +422,7 @@
         if (this.dead) return;
         if (px >= this.x1() && px <= this.x2() && py >= this.y1() && py <= this.y2()) {
           ship.explode();
-        } else if (this.y2() > $.game.groundY) {
+        } else if (this.y2() > SpaceInvaders.groundY) {
           ship.explode();
         };
       });
@@ -390,73 +437,76 @@
   
   // SHIP //-----------------------------------------------------------------//
 
-  ship = new Sprite({
-    src:       './images/ship.png',
-    width:     20,
-    height:    20,
-    x:         null,
-    y:         null,
-    direction: null,
-    speed:     10,
-    bullet:    null,
+  function Player() {
+    return new Sprite({
+      name:      'Player.',
+      image:     images['ship'][0],
+      x:         null,
+      y:         null,
+      direction: null,
+      speed:     10,
+      bullet:    null,
 
-    xMid:      function() { return this.x + this.width / 2;  },
-    yMid:      function() { return this.y + this.height / 2; },    
-    
-    init: function() {
-      this.load();
-      this.x = canvas.width / 2 - (ship.width / 2);
-      this.y = canvas.height - this.height - 14;
-      this.mousePos = canvas.width / 2;
-    },
-    
-    update: function() {      
-      this.draw(this.x, this.y);
-      if (this.bullet) {
-        this.bullet.update();
-      };
-      this.move();
-    },
-    
-    atEdge: function() { return atEdge.call(this); },
-    
-    move: function() {
-      if (this.direction && !this.atEdge()) {
-        this.x += this.speed * this.direction;
-      }
-    },
-    
-    fire: function() {
-      if (this.bullet) { return; };
-      this.bullet = new Sprite({ 
-        x:   this.x,
-        y:   this.y,
-        width:  2,
-        height: 10,
-        speed:  15,
-        src: './images/bullet.png',
-        update: function() {
-          this.y -= this.speed;
-          if (this.y < 0) {
-            ship.bullet = null;
-          }
-          this.draw(this.x, this.y);
+      xMid:      function() { return this.x + this.width / 2;  },
+      yMid:      function() { return this.y + this.height / 2; },    
+
+      init: function() {
+        this.image = images['ship'][0];
+        this.width  = this.image.width;
+        this.height = this.image.width;      
+        this.x = canvas.width / 2 - (ship.width / 2);
+        this.y = canvas.height - this.height - 14;
+        this.mousePos = canvas.width / 2;
+      },
+
+      update: function() {      
+        this.draw(this.x, this.y);
+        if (this.bullet) {
+          this.bullet.update();
+        };
+        this.move();
+      },
+
+      atEdge: function() { return atEdge.call(this); },
+
+      move: function() {
+        if (this.direction && !this.atEdge()) {
+          this.x += this.speed * this.direction;
         }
-      });
-      this.bullet.load();
-    },
-    
-    explode: function() {
-      $.game.lives -= 1;
-      if ($.game.lives > 0) {
-        invaders.reset();
-        ship.init();
-        explosions.push(new Explosion({x: ship.xMid(), y: ship.yMid() }));
-      } else {
-        $.game.gameOver();
+      },
+
+      fire: function() {
+        if (this.bullet) { return; };
+        this.bullet = new Sprite({ 
+          x:   this.x,
+          y:   this.y,
+          width:  2,
+          height: 10,
+          speed:  15,
+          image: images['bullet'][0],
+          update: function() {
+            this.y -= this.speed;
+            if (this.y < 0) {
+              ship.bullet = null;
+            }
+            this.draw(this.x, this.y);
+          }
+        });
+        this.bullet.load();
+      },
+
+      explode: function() {
+        SpaceInvaders.lives -= 1;
+        if (SpaceInvaders.lives > 0) {
+          invaders.init();
+          ship.init();
+          explosions.push(new Explosion({x: ship.xMid(), y: ship.yMid() }));
+        } else {
+          SpaceInvaders.gameOver();
+        }
       }
-    }
-  });
+    });
+  };
   
   // INVADERS //--------------------------------------------------------------//
   
@@ -476,7 +526,7 @@
     direction:  RIGHT,
     counter:    0,
     modulus:    10, // only move every n ticks
-    frame:      1,
+    frame:      0,
 
     atEdge: function() { return atEdge.call(this); },
     
@@ -497,23 +547,21 @@
     },
     
     draw: function() {
-      // ctx.save();
-      // ctx.translate(this.x, this.y);
-      // ctx.scale(200, 200);
       this.eachAlien(function() {
         if (!this.dead) {
-          ctx.putImageData(images['a' + this.fleet.frame], this.x + this.fleet.x, this.y + this.fleet.y);
-          // this.sprite.draw(this.x, this.y);
+          var img = this.row == 0 ? images['b'][this.fleet.frame] : images['a'][this.fleet.frame], // TODO fixme
+              x = this.x + this.fleet.x,
+              y = this.y + this.fleet.y;        
+          ctx.putImageData(img, x, y);
         };
       });
-      // ctx.restore();
     },
     
     move: function() {
       if (this.counter++ % this.modulus != 0) {
         return;
       }
-      this.frame = (this.frame) % 2 + 1; // alternate between 2 frames
+      this.frame = (this.frame + 1) % 2; // alternate between 2 frames
       if (this.atEdge()) {
         this.y += this.cellHeight + this.padding;
         this.direction *= -1;
@@ -528,7 +576,7 @@
       this.fire();
       for(var i = 0; i < this.bullets.length; i++ ) {
         var bullet = this.bullets[i];
-        if (bullet.y + bullet.height > $.game.groundY) {
+        if (bullet.y + bullet.height > SpaceInvaders.groundY) {
           this.bullets.shift();
         } else {
           bullet.y += bullet.speed;
@@ -539,8 +587,8 @@
     
     init: function() {
       this.aliens = [];
-      this.cellWidth  = images['a1'].width;
-      this.cellHeight = images['a1'].height;
+      this.cellWidth  = images['a'][0].width;
+      this.cellHeight = images['a'][0].height;
       
       for (i = 0; i < this.nRows; i++) {
         var row = [];
@@ -550,7 +598,7 @@
             col: j,
             x: ((this.cellWidth  + this.padding) * j),
             y: ((this.cellHeight + this.padding) * i),
-            fleet:  this,
+            fleet:  this
           });
           row.push(enemy);
         };
@@ -560,12 +608,6 @@
       this.y = this.initY;
       this.x = this.initX;
       this.remaining  = this.nRows * this.nCols;
-    },
-    
-    reset: function() {
-      this.bullets = [];
-      this.y = this.initY;
-      this.x = 0;
     },
     
     nextWave: function() {
@@ -584,19 +626,16 @@
           width:  2,
           height: 10,
           speed:  5,
-          src: './images/bullet.png'
+          image:  images['bullet'][0]
         });
         
-        bullet.load();
         this.bullets.push(bullet);
       }
     }
   };
   
   $(document).ready(function() {
-    $.game.start();
+    SpaceInvaders.start();
   });
-
-  $.ship = ship;
 
 })(jQuery);
