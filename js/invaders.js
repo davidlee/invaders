@@ -210,11 +210,13 @@ var SpaceInvaders;
 
   // Util //-------------------------------------------------------------//
 
-  function atEdge() {
+  function atEdge(margin) {
+    if (typeof margin == 'undefined') margin = 0;
+    console.log(this.x, margin, this.x + margin, canvas.width - this.width);
     if (this.direction == RIGHT) {
-      return this.x >= (canvas.width - this.width);
+      return this.x + margin >= (canvas.width - this.width);
     };
-    return this.x <= 0;
+    return this.x <= margin;
   };
 
   Array.prototype.random = function() { 
@@ -440,10 +442,10 @@ var SpaceInvaders;
         this.move();
       },
 
-      atEdge: function() { return atEdge.call(this); },
+      atEdge: function(margin) { return atEdge.call(this, margin); },
 
       move: function() {
-        if (this.direction && !this.atEdge()) {
+        if (this.direction && !this.atEdge(this.speed)) {
           this.x += this.speed * this.direction;
         }
       },
@@ -462,8 +464,9 @@ var SpaceInvaders;
             this.y -= this.speed;
             if (this.y < 0) {
               ship.bullet = null;
+            } else {
+              this.draw(this.x, this.y);              
             }
-            this.draw(this.x, this.y);
           }
         });
       },
@@ -531,11 +534,11 @@ var SpaceInvaders;
     direction:   RIGHT,
     speed:          10,
     counter:         0,
-    modulus:        10, // only move every n ticks
-    initialModulus: 10,  // resets modulus each wave
+    modulus:        1, // only move every n ticks
+    initialModulus: 1,  // resets modulus each wave
     frame:      0,
 
-    atEdge: function() { return atEdge.call(this); },
+    atEdge: function(margin) { return atEdge.call(this, margin); },
     
     eachCell: function(otherFunction) {
       for (i = 0; i < this.nRows; i++) {
@@ -558,8 +561,8 @@ var SpaceInvaders;
         if (!this.dead) {
           var img = this.row == 0 ? images['b'][this.fleet.frame] : images['a'][this.fleet.frame], // TODO fixme
               x = this.x + this.fleet.x,
-              y = this.y + this.fleet.y;        
-          ctx.putImageData(img, x, y);
+              y = this.y + this.fleet.y;
+          if (this.y2() < SpaceInvaders.groundY) { ctx.putImageData(img, x, y); }
         };
       });
     },
@@ -568,8 +571,8 @@ var SpaceInvaders;
       if (this.counter++ % this.modulus != 0) {
         return;
       }
-      this.frame = (this.frame + 1) % 2; // alternate between 2 frames
-      if (this.atEdge()) {
+      this.frame = (this.frame + 1) % 2; // alternate between 2 frames      
+      if (this.atEdge(this.speed)) {
         this.y += this.cellHeight + this.padding;
         this.direction *= -1;
       } else {
