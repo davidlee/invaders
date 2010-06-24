@@ -212,7 +212,6 @@ var SpaceInvaders;
 
   function atEdge(margin) {
     if (typeof margin == 'undefined') margin = 0;
-    console.log(this.x, margin, this.x + margin, canvas.width - this.width);
     if (this.direction == RIGHT) {
       return this.x + margin >= (canvas.width - this.width);
     };
@@ -534,8 +533,8 @@ var SpaceInvaders;
     direction:   RIGHT,
     speed:          10,
     counter:         0,
-    modulus:        1, // only move every n ticks
-    initialModulus: 1,  // resets modulus each wave
+    modulus:        10, // only move every n ticks
+    initialModulus: 10,  // resets modulus each wave
     frame:      0,
 
     atEdge: function(margin) { return atEdge.call(this, margin); },
