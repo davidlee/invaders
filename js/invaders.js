@@ -17,6 +17,8 @@ var SpaceInvaders;
       bitmaps, images = {},
       explosions = [];
   
+  // GRAPHICS //-------------------------------------------------------------//
+  
   bitmaps = {
     bullet: {
       color: [255,255,0],
@@ -149,19 +151,7 @@ var SpaceInvaders;
     };    
     return image;
   }
-
-  function atEdge() {
-    if (this.direction == RIGHT) {
-      return this.x >= (canvas.width - this.width);
-    };
-    return this.x <= 0;
-  };
-
-  Array.prototype.random = function() { 
-    var idx = Math.round(Math.random() * (this.length - 1));
-    return this[idx];
-  };
-
+  
   var Explosion = function(options) {
     var explosion = $.extend({
       x:         null,
@@ -171,7 +161,7 @@ var SpaceInvaders;
       k:         0.3,
       size:      20,
       score:     '',
-      color:     '#f70',
+      color:     '#fc0',
       textColor: '#fff',
       
       update: function() {
@@ -217,19 +207,21 @@ var SpaceInvaders;
     sprite.height = sprite.image.height;
     return sprite;
   };
-  
-  var Enemy = function(options) {
-    return $.extend({
-      dead:   false,
-      fleet:  invaders,
-      points: 10, 
-      x1: function() { return this.x + this.fleet.x; },
-      x2: function() { return this.x1() + this.fleet.cellWidth; },
-      y1: function() { return this.y + this.fleet.y; },
-      y2: function() { return this.y1() + this.fleet.cellHeight; }
-    }, options);
+
+  // Util //-------------------------------------------------------------//
+
+  function atEdge() {
+    if (this.direction == RIGHT) {
+      return this.x >= (canvas.width - this.width);
+    };
+    return this.x <= 0;
   };
-  
+
+  Array.prototype.random = function() { 
+    var idx = Math.round(Math.random() * (this.length - 1));
+    return this[idx];
+  };
+    
   // GAME //--------------------------------------------------------------//
   
   SpaceInvaders = {
@@ -374,7 +366,7 @@ var SpaceInvaders;
       ctx.font         = 'bold 100px monospace';
       ctx.textBaseline = 'middle';
       ctx.textAlign    = 'center';
-      ctx.fillText("GAME", canvas.width / 2, canvas.height / 2 - 50);      
+      ctx.fillText("GAME", canvas.width / 2, canvas.height / 2 - 50);
       ctx.fillText("OVER", canvas.width / 2, canvas.height / 2 + 50);
       SpaceInvaders.paused = true;
     },
@@ -386,15 +378,7 @@ var SpaceInvaders;
         invaders.eachAlien(function() {
           if (this.dead) return;
           if (bx >= this.x1() && bx <= this.x2() && by >= this.y1() && by <= this.y2()) {
-            this.dead   = true;
-            ship.bullet = null;
-            SpaceInvaders.score += this.points;
-            explosions.push(new Explosion({x: bx, y: by, score: '10'}));
-            invaders.remaining -= 1;
-            if (invaders.remaining == 0) {
-              invaders.nextWave();
-            };
-            return;
+            this.explode(bx,by);
           }
         });
       }
@@ -406,7 +390,7 @@ var SpaceInvaders;
           y1 = ship.y,
           y2 = ship.y + ship.height;
       $.each(invaders.bullets, function() {
-        var bx = this.x, by = this.y;
+        var bx = this.x + this.width / 2, by = this.y + this.height;
         if (bx >= x1 && bx <= x2 && by >= y1 && by <= y2) {
           ship.explode();
         }
@@ -433,7 +417,7 @@ var SpaceInvaders;
     }
   };
   
-  // SHIP //-----------------------------------------------------------------//
+  // Player //-----------------------------------------------------------------//
 
   function Player() {
     var player = new Sprite({
@@ -471,8 +455,9 @@ var SpaceInvaders;
           y:   this.y,
           width:  2,
           height: 10,
-          speed:  15,
+          speed:  20,
           image: images['bullet'][0],
+
           update: function() {
             this.y -= this.speed;
             if (this.y < 0) {
@@ -481,27 +466,55 @@ var SpaceInvaders;
             this.draw(this.x, this.y);
           }
         });
-        this.bullet.load();
       },
 
       explode: function() {
         SpaceInvaders.lives -= 1;
         if (SpaceInvaders.lives > 0) {
+          explosions.push(new Explosion({x: ship.xMid(), y: ship.yMid(), size: 50, k: 0.1 }));
           invaders.init();
           ship.init();
-          explosions.push(new Explosion({x: ship.xMid(), y: ship.yMid() }));
         } else {
           SpaceInvaders.gameOver();
         }
+      },
+      
+      init: function() {
+        this.x = canvas.width / 2 - (this.width / 2);
+        this.y = canvas.height - this.height - 14;
       }
     });
-    player.x = canvas.width / 2 - (player.width / 2);
-    player.y = canvas.height - player.height - 14;
+    player.init();
     return player;
-    
   };
   
   // INVADERS //--------------------------------------------------------------//
+  
+  var Enemy = function(options) {
+    return $.extend({
+      dead:   false,
+      fleet:  invaders,
+      points: 10, 
+      x1: function() { return this.x + this.fleet.x; },
+      x2: function() { return this.x1() + this.fleet.cellWidth; },
+      y1: function() { return this.y + this.fleet.y; },
+      y2: function() { return this.y1() + this.fleet.cellHeight; },
+      explode: function(x,y) {
+        this.dead   = true;
+        ship.bullet = null;
+        SpaceInvaders.score += this.points;
+        explosions.push(new Explosion({ x: x, y: y, score: '10' }));
+        invaders.remaining -= 1;
+        if (invaders.remaining < 8 && invaders.modulus > 1) {
+          invaders.modulus--;
+        }              
+        if (invaders.remaining == 0) {
+          invaders.nextWave();
+        };
+        return;
+      }
+    }, options);
+  };
   
   invaders = {
     nRows:      5,
@@ -511,14 +524,15 @@ var SpaceInvaders;
     x:          0,
     y:          0,
     initX:      0,
-    initY:      40,    
-    speed:      10,
+    initY:      40,
     padding:    5,
     width:      null,
     remaining:  0,
-    direction:  RIGHT,
-    counter:    0,
-    modulus:    10, // only move every n ticks
+    direction:   RIGHT,
+    speed:          10,
+    counter:         0,
+    modulus:        10, // only move every n ticks
+    initialModulus: 10,  // resets modulus each wave
     frame:      0,
 
     atEdge: function() { return atEdge.call(this); },
@@ -580,6 +594,7 @@ var SpaceInvaders;
     
     init: function() {
       this.aliens = [];
+      this.bullets = [];
       this.cellWidth  = images['a'][0].width;
       this.cellHeight = images['a'][0].height;
       
@@ -597,14 +612,17 @@ var SpaceInvaders;
         };
         this.aliens.push(row);
       };
+      
       this.width = (this.cellWidth + this.padding) * this.nCols;
       this.y = this.initY;
       this.x = this.initX;
       this.remaining  = this.nRows * this.nCols;
+      this.modulus = this.initialModulus;      
     },
     
     nextWave: function() {
-      this.speed = Math.min(this.speed + 1, 15);
+      this.speed          = Math.min(this.speed + 1, 15);
+      this.initialModulus = Math.max(this.initialModulus - 1, 5);
       this.init();
     },
         
@@ -627,6 +645,8 @@ var SpaceInvaders;
     }
   };
   
+  // Boot //-----------------------------------------------------------------//
+    
   $(document).ready(function() {
     SpaceInvaders.start();
   });
