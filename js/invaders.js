@@ -100,16 +100,16 @@ var SpaceInvaders;
       color: [0,255,0],
       frames: [
         [
-           "     #     ",
-           "    ###    ",
-           "    ###    ",
-           " ######### ",  
-           "###########",
-           "###########",
-           "###########",
-           "###########",
-           "###########",
-           "###########"
+           "       #       ",
+           "      ###      ",
+           "      ###      ",
+           " ############# ",  
+           "###############",
+           "###############",
+           "###############",
+           "###############",
+           "###############",
+           "###############"
          ]      
       ]
     }
@@ -298,11 +298,9 @@ var SpaceInvaders;
       
       ship = new Player();
       this.mouseX = ship.x;
-      
-      invaders.init();
-      ship.init();
-      
       this.groundY = ship.y + ship.height;
+            
+      invaders.init();
 
       $(document).keydown(this.keydown);
       $(document).keyup(this.keyup);
@@ -348,13 +346,13 @@ var SpaceInvaders;
       ctx.fillStyle     = '#f00';
       ctx.font          = 'bold 20px monospace';
       ctx.textBaseline  = 'top';      
-      ctx.textAlign     = 'right';
-      ctx.fillText(this.score, 50, 5);
+      ctx.textAlign     = 'left';
+      ctx.fillText(this.score, 20, 5);
     },
 
     renderLives: function() {
       for(var i = 0; i < this.lives; i++ ) {
-        ship.draw(500 + 30 * i, 10);
+        ship.draw(canvas.width - (ship.width + 10) * (i + 1), 10);
       };
     },
     
@@ -368,7 +366,7 @@ var SpaceInvaders;
       ctx.fillStyle = '#000'; // sky
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#0f0'; // ground
-      ctx.fillRect(10, this.groundY, canvas.width - 20, 2);
+      ctx.fillRect(20, this.groundY, canvas.width - 40, 2);
     },
         
     gameOver: function() {
@@ -438,7 +436,7 @@ var SpaceInvaders;
   // SHIP //-----------------------------------------------------------------//
 
   function Player() {
-    return new Sprite({
+    var player = new Sprite({
       name:      'Player.',
       image:     images['ship'][0],
       x:         null,
@@ -449,15 +447,6 @@ var SpaceInvaders;
 
       xMid:      function() { return this.x + this.width / 2;  },
       yMid:      function() { return this.y + this.height / 2; },    
-
-      init: function() {
-        this.image = images['ship'][0];
-        this.width  = this.image.width;
-        this.height = this.image.width;      
-        this.x = canvas.width / 2 - (ship.width / 2);
-        this.y = canvas.height - this.height - 14;
-        this.mousePos = canvas.width / 2;
-      },
 
       update: function() {      
         this.draw(this.x, this.y);
@@ -506,6 +495,10 @@ var SpaceInvaders;
         }
       }
     });
+    player.x = canvas.width / 2 - (player.width / 2);
+    player.y = canvas.height - player.height - 14;
+    return player;
+    
   };
   
   // INVADERS //--------------------------------------------------------------//
