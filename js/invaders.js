@@ -24,20 +24,81 @@ var SpaceInvaders;
       color: [255,255,0],
       frames: [
         [
-          " ## ",
-          " ## ",
-          " ## ",
-          " ## ",
-          " ## ",
-          " ## ",
-          " ## ",
-          " ## ",
-          " ## ",
-          " ## "
+          "#",
+          "#",
+          "#",
+          "#"
         ]
       ]
     },
+    
+    /*
+        "#  ",
+        " # ",
+        "  #",
+        " # ",
+        "#  ",
 
+        " # ",
+        " # ",
+        " # ",
+        "###",
+        " # ",
+
+
+        " # ",
+        " # ",
+        "## ",
+        " ##",
+        " # ",
+        "## ",
+        " ##"
+        
+        "# # #",
+        " ### ",
+        "#####",
+        " ### ",
+        "# # #"
+    */
+        
+    bunker: {
+      color: [0,255,0],
+      frames: [
+        "    #############     ",
+        "   ################   ",
+        "  ##################  ",
+        " #################### ",
+        "######################",
+        "######################",
+        "######################",
+        "######################",
+        "######################",
+        "######################",
+        "######################",
+        "######################",
+        "########      ########",
+        "#######        #######",
+        "######          ######",
+        "######          ######"
+      ]
+    },
+
+    mothership: {
+      color: [0,0,0],
+      frames: [
+        [
+          "     ######     ",
+          "   ##########   ",
+          "  ############  ",
+          " ## ## ## ## ## ",
+          "################",
+          "  ###  ##  ###  ",
+          "   #        #   ",
+          "                "
+        ]
+      ]
+    },
+    
     c: {
        color: [0,255,255],
        frames: 
@@ -142,6 +203,13 @@ var SpaceInvaders;
       ]
     }
   };
+  
+  function detectRectCollision(ax1,ax2,ay1,ay2, bx1,bx2,by1,by2) {
+    return (((ax1 <= bx1 && ax2 >= bx1) || (ax1 <= bx2 && ax2 >= bx2) || 
+             (bx1 <= ax1 && bx2 >= ax1) || (bx1 <= ax2 && bx2 >= ax2)) &&
+            ((ay1 <= by1 && ay2 >= by1) || (ay1 <= by2 && ay2 >= by2) || 
+             (by1 <= ay1 && by2 >= ay1) || (by1 <= ay2 && by2 >= ay2)));
+  }
   
   // turns the bitmaps above into a blown-up ImageData object, w/ nice big pixels
   // unfortunately ImageData ignores transformations, or this could be a lot 
@@ -400,12 +468,16 @@ var SpaceInvaders;
     
     // collisions simplify by treating bullets as a point
     detectPlayerBulletCollisions: function() {
-      if (ship.bullet) { 
-        var bx = (ship.bullet.x + ship.bullet.width / 2), by = ship.bullet.y;
+      var b = ship.bullet, bx1, bx2, by1, by2;
+      if (b) { 
+        bx1 = b.x;
+        bx2 = b.x + b.width;
+        by1 = b.y;
+        by2 = b.y + b.height;
         invaders.eachAlien(function() {
           if (this.dead) return;
-          if (bx >= this.x1() && bx <= this.x2() && by >= this.y1() && by <= this.y2()) {
-            this.explode(bx,by);
+          if (detectRectCollision(bx1, bx2, by1, by2, this.x1(), this.x2(), this.y1(), this.y2())) {
+            this.explode(b.x + b.width / 2 , b.y + b.height / 2);
           }
         });
       }
@@ -415,10 +487,14 @@ var SpaceInvaders;
       var x1 = ship.x, 
           x2 = ship.x + ship.width,
           y1 = ship.y,
-          y2 = ship.y + ship.height;
+          y2 = ship.y + ship.height,
+          bx1, bx2, by1, by2;
       $.each(invaders.bullets, function() {
-        var bx = this.x + this.width / 2, by = this.y + this.height;
-        if (bx >= x1 && bx <= x2 && by >= y1 && by <= y2) {
+        bx1 = this.x;
+        bx2 = this.x + this.width;
+        by1 = this.y;
+        by2 = this.y + this.height;
+        if (detectRectCollision(x1, x2, y1, y2, bx1, bx2, by1, by2)) { 
           ship.explode();
         }
       });
@@ -482,7 +558,7 @@ var SpaceInvaders;
           y:   this.y,
           width:  2,
           height: 10,
-          speed:  20,
+          speed:  15,
           image: images['bullet'][0],
 
           update: function() {
@@ -560,9 +636,9 @@ var SpaceInvaders;
     width:      null,
     remaining:  0,
     direction:   RIGHT,
-    speed:          10,
+    speed:          5,
     counter:         0,
-    modulus:        10, // only move every n ticks
+    modulus:        20, // only move every n ticks
     initialModulus: 10,  // resets modulus each wave
     frame:      0,
 
@@ -659,10 +735,22 @@ var SpaceInvaders;
     },
         
     fire: function() {
+      var shooter, shooters = [];      
       if (Math.random() > 0.95) {
-        var shooter = this.aliens.random().random();
-        if (shooter.dead) { return; }
-        
+        // find the lowest living alien in each column
+        for(var x = 0; x < this.nCols; x++) {
+          for(var y = this.nRows - 1; y >= 0; y--) {
+            var alien = this.aliens[y][x];
+            if (alien.dead) { 
+              continue; 
+            } else {
+              shooters.push(alien);
+              break;
+            };
+          };
+        };
+        // choose a column randomly
+        shooter = shooters.random();        
         var bullet = new Sprite({ 
           x:      shooter.x1() + (this.cellWidth / 2),
           y:      shooter.y1(),
@@ -670,8 +758,7 @@ var SpaceInvaders;
           height: 10,
           speed:  5,
           image:  images['bullet'][0]
-        });
-        
+        });        
         this.bullets.push(bullet);
       }
     }
