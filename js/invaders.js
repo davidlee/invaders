@@ -736,21 +736,24 @@ var SpaceInvaders;
         
     fire: function() {
       var shooter, shooters = [];      
-      if (Math.random() > 0.95) {
-        // find the lowest living alien in each column
-        for(var x = 0; x < this.nCols; x++) {
-          for(var y = this.nRows - 1; y >= 0; y--) {
-            var alien = this.aliens[y][x];
-            if (alien.dead) { 
-              continue; 
-            } else {
+      // find the lowest living alien in each column
+      // and determine if they should have a chance to shoot
+      for(var x = 0; x < this.nCols; x++) {
+        for(var y = this.nRows - 1; y >= 0; y--) {
+          var alien = this.aliens[y][x];
+          if (alien.dead) { 
+            continue; 
+          } else {
+            if (Math.random() > 0.995) {
               shooters.push(alien);
-              break;
-            };
+            }
+            break;
           };
         };
-        // choose a column randomly
-        shooter = shooters.random();        
+      };
+      // choose a shooter randomly, if any
+      shooter = shooters.random();
+      if (shooter) {
         var bullet = new Sprite({ 
           x:      shooter.x1() + (this.cellWidth / 2),
           y:      shooter.y1(),
@@ -759,8 +762,8 @@ var SpaceInvaders;
           speed:  5,
           image:  images['bullet'][0]
         });        
-        this.bullets.push(bullet);
-      }
+        this.bullets.push(bullet);        
+      };
     }
   };
   
