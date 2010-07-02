@@ -11,4 +11,4 @@ TODO:
  * add some basic css to demo page
  * high score table
  * only bottom aliens in each column should shoot
- 
+ * speed of fleet is determined by its height on the screen

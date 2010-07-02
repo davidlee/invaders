@@ -32,7 +32,8 @@ var SpaceInvaders;
       ]
     },
     
-    /*
+    /* TODO bullets
+    
         "#  ",
         " # ",
         "  #",
@@ -230,7 +231,7 @@ var SpaceInvaders;
         
         var idx = (x + y * image.width) * 4;
 
-        if (bitmap[py][px] == '#' && (y % 2 == 0)) {  // it's a visible "pixel"
+        if (bitmap[py][px] === '#' && (y % 2 === 0)) {  // it's a visible "pixel"
           image.data[idx + 0] = r;
           image.data[idx + 1] = g;
           image.data[idx + 2] = b;
@@ -305,8 +306,8 @@ var SpaceInvaders;
   // Util //-------------------------------------------------------------//
 
   function atEdge(margin) {
-    if (typeof margin == 'undefined') margin = 0;
-    if (this.direction == RIGHT) {
+    if (typeof margin === 'undefined') margin = 0;
+    if (this.direction === RIGHT) {
       return this.x + margin >= (canvas.width - this.width);
     };
     return this.x <= margin;
@@ -369,7 +370,7 @@ var SpaceInvaders;
     start: function() {
       // check we have canvas
       canvas = document.getElementById('view');      
-      if (!canvas || typeof(canvas.getContext) != 'function') {
+      if (!canvas || typeof(canvas.getContext) !== 'function') {
         return; // and tell them to get a real browser, or use fake canvas for IE
       }
       ctx = canvas.getContext('2d');
@@ -400,7 +401,7 @@ var SpaceInvaders;
 
     // periodically executed function to render scene
     tick: function() {
-      if (this.paused || this.lives == 0) return;
+      if (this.paused || this.lives === 0) return;
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       this.renderGround();
@@ -614,7 +615,7 @@ var SpaceInvaders;
         if (invaders.remaining < 8 && invaders.modulus > 1) {
           invaders.modulus--;
         }              
-        if (invaders.remaining == 0) {
+        if (invaders.remaining === 0) {
           invaders.nextWave();
         };
         document.getElementById('kill').volume = 0.2;
@@ -673,7 +674,7 @@ var SpaceInvaders;
     },
     
     move: function() {
-      if (this.counter++ % this.modulus != 0) {
+      if (this.counter++ % this.modulus !== 0) {
         return;
       }
       this.frame = (this.frame + 1) % 2; // alternate between 2 frames      
@@ -744,13 +745,14 @@ var SpaceInvaders;
           if (alien.dead) { 
             continue; 
           } else {
-            if (Math.random() > 0.995) {
+            if (Math.random() > 0.998) {
               shooters.push(alien);
             }
             break;
           };
         };
       };
+      
       // choose a shooter randomly, if any
       shooter = shooters.random();
       if (shooter) {
